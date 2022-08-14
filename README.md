@@ -12,7 +12,7 @@ Note the framework can also process:
 ### Step 1 - Import class "UnitTest.DTL.HL7TestCase" into target namespace
 
 ### Step 2 - Generate new TestCase(s)
-This method analyses the namespace for matching DTL implemented classes.
+This method analyses the namespace for matching DTL implemented classes.<br/>
 For each DTL found, a new TestCase is created when one doesn't already exists. (Existing classes will not be overwritten).
 
 Example:
@@ -21,9 +21,9 @@ Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("UnitTest.DTL.TestTrans."
 ```
 Parameters:
 * matchPackage - The facility will search for any transform classes that match this package path<br/>
-* targetPackage - The base target page to generate new TestCase classes in<br/>
+* targetPackage - The base target package to generate new TestCase classes in. (Use different from source package).<br/>
 * copySubPackageNames - If enabled generate TestCase classes in sub packages as discovered from matched transforms<br/>
-* addToProject - If specified. Attempt to automatically add classes to the named Studio Package.
+* addToProject - If specified. Attempt to automatically add classes to the named Studio Package. (Running in Studio Output window).
 * listOnly - If enabled only list the classes that would be generated
 * pStatus - List of errors encountered. 
 
@@ -41,7 +41,6 @@ Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology
 // match ending in dot, follow sub package name convention
 Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
 ```
-
 
 ### Step 3 - Optional Adjust Compare expressions
 The source and target schemas have been extracted from the analyzed DTL<br/>
