@@ -130,6 +130,19 @@ Additional Source and expected output messages can be added as datablocks.
 Simply use names starting with "TEST" and ending with <em>Source</em> or <em>Target</em> accordingly.
 The additional tests are automatically added to the unit test run.
 
+For programatically adding new Source messages and optionally generated outputs see method <em>AddTestFromMessageBody</em>
+```objectscript
+set tSC=##class(UnitTest.Test.DTL.TestTrans.TransformSource2).AddTestFromMessageBody("EnsLib.HL7.Message",2790,1,.sourceXdataName,.targetXdataName)
+```
+Populate Test XData blocks with message content<br/>
+Parameters:<br/>
+ - source Classname - eg: EnsLib.HL7.Message
+ - sourceId - Saved ObjectId
+ - generateDTLResult - "1" = Yes, "0"= No
+ - sourceXdataName - Optional ByRef for output review
+ - targetXdataName - Optional ByRef for output review
+
+
 ### Step 4 - Core UnitTest runner dependency
 The generated TestCases have the TestSuite of "TestDTL".<br/>
 In the namespace the global ^UnitTestRoot must point at a real local directory. For example:
@@ -189,5 +202,52 @@ AssertFail:Correlate Message TESTMessageSource->ERROR #5001: Unable to ImportFro
   TestDTL failed
 ```
 
-# 
+# Bonus Features
+Extending the available core UnitTest Assertions the generated DTL TestCase provides new capabilities:
+
+## AssertListContainsPath
+Usecase to constrain the output of a transformation to a range of values.
+Usecase 1:<br/.
+There is a side-effect when the first time a transform is run it has the first value.
+The second time a transform is run it has the second value.
+Subsequent transforms also have the second value.
+It is better to be able to constrain by unit tests the two possible values than to not constrain these output values at all.<br/>
+Usecase 2:<br/>
+Recieve order update messages by the Hospital System from a Radiology System.<br/>
+Validate the OrderStatus is constrained to a list of expected values.<br/>
+Description of parameters:<br/>
+pTarget - An instance of EnsLib.HL7.Message or EnsLib.HL7.Segment<br/>
+pTargetPath - The virtual document path to extract test value from. eg: "MSH:9.2" <br/>
+pList - An ObjectScript list containing a list of values for equality eg: $LISTBULID("AB","B","C")<br/>
+Usage :
+```objectscript
+do ..AssertListContainsPath(actualTarget,"OBR:ResultStatus",$LB("F","K"))
+```
+## AssertListNotContainsPath
+Converse of the Assert function AssertListContainsPath.<br/>
+Description of parameters:<br/>
+ - pTarget - An instance of EnsLib.HL7.Message or EnsLib.HL7.Segment<br/>
+ - pTargetPath - The virtual document path to extract test value from. eg: "MSH:9.2" <br/>
+ - pList - An ObjectScript List containing a list of values for equality eg: $LISTBULID("AB","B","C")<br/>
+Usage :
+```objectscript
+do ..AssertListNotContainsPath(actualTarget,"OBR:ResultStatus",$LB("P","E"))
+```
+
+## AssertObjectExists
+Extending Assert method to validate that for object references:
+ - The expected value is not empty
+ - The actual value after transformation is not empty
+ - Both the expected value and the actual value match
+
+## AssertObjectListLengthEqual
+Check counts of sub-elements in path resolve to equal length lists
+ - Return 0 = ASSERT fail
+ - Return 1 = ASSERT OK
+ 
+## AssertPathEqualsNotEmpty
+Extending Assert method to validate that for virtual document path:
+ - The expected value is not empty
+ - The actual value after transformation is not empty
+ - Both the expected value and the actual value match
 
