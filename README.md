@@ -30,16 +30,16 @@ Parameters:
 Example variations:
 ```objectscript
 // List Only Test, match ending in dot
-Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
 // List Only match not ending in dot
-Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
 // List Only, No copy sub packages, match ending in dot
-Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
 // List Only, No copy sub packages, match not ending in dot
-Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
 // Actually generate TestCases
 // match ending in dot, follow sub package name convention
-Do ##class(LabTechUK.UnitTest.DTLTestCaseBase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
 ```
 
 ### Step 3 - Optional Adjust Compare expressions
@@ -200,6 +200,22 @@ AssertFail:Correlate Message TESTMessageSource->ERROR #5001: Unable to ImportFro
   Skipping deleting classes
   TestDTL failed
 ```
+
+# Utility Methods
+## CorrelateMessage
+Use case: To check whether a test message is behaving as expected for a property path.
+Parameter:
+ - classname - The fully package qualified class name of the test class extending DTLUnitTestBase<br/>
+ - xdataName - The full Name (including prefix and suffix) of an XData block containing an HL7 Message or Segment<br/>
+ - schema - The message schema (eg: 2.4:ADT_A05) or segment schema (eg: 2.4:MSH)
+ - args - Future use multidimensional parameter to extend behaviour<br/>
+```objectscript
+Set hl7=##class(UnitTest.DTL.HL7TestCase).CorrelateMessage("UnitTest.Test.DTL.TestTrans.TransformSource2","TESTMessageSource","2.5:ADT_A01",,.pStatus)
+Write hl7.GetValueAt("MSH:SendingFacility.NamespaceID")
+
+MSH:4.1
+```
+
 
 # Bonus Features
 Extending the available core UnitTest Assertions the generated DTL TestCase provides new capabilities:
