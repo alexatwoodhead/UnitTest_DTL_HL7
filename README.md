@@ -222,10 +222,10 @@ Extending the available core UnitTest Assertions the generated DTL TestCase prov
 
 ## AssertListContainsPath
 Usecase to constrain the output of a transformation to a range of values.
-Usecase 1:<br/.
-There is a side-effect when the first time a transform is run it has the first value.
-The second time a transform is run it has the second value.
-Subsequent transforms also have the second value.
+Usecase 1:<br/>
+There is a side-effect when the first time a transform is run it has the first actual value.<br/>
+The second time a transform is run it has the second actual value.<br/>
+Subsequent transforms also have the second actual value.<br/>
 It is better to be able to constrain by unit tests the two possible values than to not constrain these output values at all.<br/>
 Usecase 2:<br/>
 Recieve order update messages by the Hospital System from a Radiology System.<br/>
