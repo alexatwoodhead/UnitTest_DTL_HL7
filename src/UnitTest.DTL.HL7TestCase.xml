@@ -1,0 +1,1535 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="IRIS" version="26" zv="IRIS for Windows (x86-64) 2022.1 (Build 191U)" ts="2022-08-14 22:19:13">
+<Class name="UnitTest.DTL.HL7TestCase">
+<Description><![CDATA[
+<pre>
+Copyright (c) Alex Woodhead 2022
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+License MIT
+Source: https://github.com/alexatwoodhead/UnitTest_DTL_HL7
+Version: 1.0
+</pre>]]]]><![CDATA[>]]></Description>
+<Super>%UnitTest.TestCase</Super>
+<TimeChanged>66335,79740.8228664</TimeChanged>
+<TimeCreated>66307,49447.182398</TimeCreated>
+
+<Parameter name="TestSuite">
+<Default>TestDTL</Default>
+</Parameter>
+
+<Parameter name="TestXDataSuffixSource">
+<Default>Source</Default>
+</Parameter>
+
+<Parameter name="TestXDataSuffixTarget">
+<Default>Target</Default>
+</Parameter>
+
+<Parameter name="TestXDataPrefix">
+<Default>TEST</Default>
+</Parameter>
+
+<Parameter name="SourceSchema">
+<Description>
+An HL7 message example 2.4:ADT_A05
+An HL7 segment example 2.4:MSH</Description>
+<Default>2.4:ADT_A05</Default>
+</Parameter>
+
+<Parameter name="TargetSchema">
+<Description>
+An HL7 message example 2.4:ADT_A05
+An HL7 segment example 2.4:MSH</Description>
+<Default>2.4:</Default>
+</Parameter>
+
+<Parameter name="TransformClass">
+<Description>
+Override with the name of DTL class</Description>
+</Parameter>
+
+<Parameter name="NewLine">
+<Default>10</Default>
+</Parameter>
+
+<Property name="SkipTest">
+<Type>%Boolean</Type>
+</Property>
+
+<Parameter name="PositionSeperator">
+<Default>|</Default>
+</Parameter>
+
+<Parameter name="RequireValidSegmentStructure">
+<Default>1</Default>
+</Parameter>
+
+<Method name="TestMessage">
+<Description><![CDATA[
+Single Generic method for testing DTL TestCases<br/>
+There is no need to override this behaviour. ]]></Description>
+<Final>1</Final>
+<Implementation><![CDATA[
+	// Validate TransformClass parameter points to complied class
+	if '##class(%Dictionary.CompiledClass).%ExistsId(..#TransformClass)
+	{
+		Do ..AssertFail("Parameter TransformClass """_..#TransformClass_""" not set to the value of a known compiled class")
+		Quit
+	}
+	// Ensure named TransformClass extends Ens.DataTransformDTL
+	set found=0
+	set rs=##class(%ResultSet).%New()
+	set rs.ClassName="%Dictionary.ClassDefinition"
+	set rs.QueryName="SubclassOf"
+	set pStatus=rs.Execute("Ens.DataTransformDTL")
+	if $$$ISERR(pStatus)
+	{
+		Do ..AssertFail("Unable to validate SubClass of Ens.DataTransformDTL")
+		Quit
+	}
+	While rs.%Next() {
+		if rs.Get("Name")=..#TransformClass {
+			set found=1
+			quit  // Quit while loop
+		}
+	}
+	Set rs=""
+	if 'found {
+		do ..AssertFail("Parameter TransformClass """_..#TransformClass_""" is not set to a SubClass of Ens.DataTransformDTL")
+		quit  // End Test
+	}
+
+	
+	// Get the name of the current class in focus
+	Set rs=##class(%ResultSet).%New()
+	Set rs.ClassName="%Dictionary.CompiledXData"
+	Set rs.QueryName="Summary"
+	Set pStatus=rs.Execute(..%ClassName(1))
+	if $$$ISERR(pStatus)
+	{
+		Do ..AssertFail("Unable to access XData metadata for Test Class")
+		Quit  // Quit TestCase
+	}
+	set prefixLength=$Length(..#TestXDataPrefix)
+	set suffixSourceLength=$Length(..#TestXDataSuffixSource)
+	set suffixTargetLength=$Length(..#TestXDataSuffixTarget)
+	
+	// Build a list of existing XData blocks that represent Test Input
+	While rs.%Next() {
+		set xdataName=rs.Get("Name")
+		// if this is a non-test message xdata block ignore it
+		if ($Extract(xdataName,1,prefixLength)'=..#TestXDataPrefix)
+		{
+			Do ..LogMessage("Ignoring XData block "_xdataName)
+			continue
+		}
+		// Check 
+		set suffixLength=$Select($Extract(xdataName,$Length(xdataName)-(suffixSourceLength-1),*)=..#TestXDataSuffixSource:suffixSourceLength,
+			$Extract(xdataName,$Length(xdataName)-(suffixTargetLength-1),*)=..#TestXDataSuffixTarget:suffixTargetLength,
+			1:0)
+		if suffixLength=0
+		{
+			Do ..AssertFail("Invalid XData Block Name """_xdataName_""". Expected either suffix of """_..#TestXDataSuffixSource_""" or """_..#TestXDataSuffixTarget_"""")
+			continue
+		}
+		set noSuffix=$Extract(xdataName,1,*-(suffixLength))
+		if noSuffix=..#TestXDataPrefix
+		{
+			Do ..AssertFail("Invalid XData Block Name """_xdataName_"""")
+			continue
+		}
+		// Add to sources
+		set sources(noSuffix)=""
+	}
+	Set rs=""
+	
+	// Ensure corresponding XData representing expected transform output exists
+	set noSuffix=""
+	for {
+		set noSuffix=$Order(sources(noSuffix))
+		quit:noSuffix=""
+		if '##class(%Dictionary.CompiledXData).%ExistsId(..%ClassName(1)_"||"_noSuffix_..#TestXDataSuffixSource)
+		{
+			Do ..AssertFail("Missing Test Source XData Block Name """_noSuffix_..#TestXDataSuffixSource_"""")
+			kill sources(noSuffix)
+			continue	
+		}
+		if '##class(%Dictionary.CompiledXData).%ExistsId(..%ClassName(1)_"||"_noSuffix_..#TestXDataSuffixTarget)
+		{
+			Do ..AssertFail("Missing Test Target XData Block Name """_noSuffix_..#TestXDataSuffixTarget_"""")
+			kill sources(noSuffix)
+			continue	
+		}
+	}
+	
+	// At this point we have a list of valid Source and Target XData blocks for message transformation and comparison
+	// Iterate through each TestCase Row, load source and expected target objects, apply 
+	set noSuffix=""
+	for {
+		set noSuffix=$Order(sources(noSuffix))
+		quit:noSuffix=""
+		set pStatus=$$$OK
+		
+		do ..LogMessage("*** Testing Message pairs "_noSuffix_..#TestXDataSuffixSource_" "_noSuffix_..#TestXDataSuffixTarget)
+		set sourceMessage=..CorrelateMessage(..%ClassName(1),noSuffix_..#TestXDataSuffixSource,..#SourceSchema,,.pStatus)
+		if ($$$ISERR(pStatus)||'$IsObject(sourceMessage))
+		{
+			do ..AssertFail("Correlate Message "_noSuffix_..#TestXDataSuffixSource,pStatus)
+			continue  // Move to new XData TestCase message pair input
+		}
+		set expectedMessage=..CorrelateMessage(..%ClassName(1),noSuffix_..#TestXDataSuffixTarget,..#TargetSchema,,.pStatus)
+		if ($$$ISERR(pStatus)||'$IsObject(expectedMessage))
+		{
+			do ..AssertFail("Correlate Message "_noSuffix_..#TestXDataSuffixTarget,pStatus)
+			continue  // Move to new XData TestCase message pair input
+		}
+		set pStatus=$CLASSMETHOD(..#TransformClass,"Transform",sourceMessage,.actualMessage)
+		// As there are possibly more than one "Row Test" to apply
+		// allow the TestCase method to continue if transform fails
+		if $$$ISERR(pStatus) {
+			Do ..AssertFail("Unable to transform source message from "_noSuffix_..#TestXDataSuffixSource_" with transformation "_..#TransformClass,pStatus)
+			continue  // Move to new XData TestCase message pair input
+		}
+		if (('$Data(actualMessage))||('$IsObject(actualMessage)))
+		{
+			Do ..AssertFail("Unable to transform source message from "_noSuffix_..#TestXDataSuffixSource_" with transformation "_..#TransformClass)
+			continue  // Move to new XData TestCase message pair input
+		}
+		#dim actualMessage as EnsLib.HL7.Message
+		// When the output of a transformation is an HL7 Message
+		// Validate that the segment structure matches the mesages schema
+		if (actualMessage.%ClassName(1)="EnsLib.HL7.Message")
+		{
+			set pStatus=actualMessage.BuildMap(0)
+			//Do ..LogMessage("..#RequireValidSegmentStructure="_..#RequireValidSegmentStructure)
+			if $$$ISERR(pStatus),..#RequireValidSegmentStructure {
+				Do ..AssertFail("Transformation Output contains invalid segment structure for Transform class """_..#TransformClass_"""",pStatus)
+				Do ..LogMessage("Override Parameter RequireValidSegmentStructure with ""0"" to surpress validation")
+				continue  // Move to new XData TestCase message pair input
+			}
+			// Additional check to confirm that the sequence of segments are the same for the Expected and Actual target.
+			set (segListExpected,segListActual)=""
+			for i=1:1:actualMessage.SegCount
+			{
+				#dim oSeg as EnsLib.HL7.Segment
+				set oSeg=actualMessage.GetSegmentAt(i,.pStatus)
+				if $$$ISERR(pStatus)
+				{
+					do ..AssertFail("Error viewing Actual Target Segment "_i,pStatus)
+					quit
+				}
+				set segListActual=segListActual_$S($L(segListActual)=0:"",1:"~")_oSeg.Name
+			}
+			if $$$ISERR(pStatus) continue  // Move to new XData TestCase message pair input
+			for i=1:1:expectedMessage.SegCount
+			{
+				set oSeg=expectedMessage.GetSegmentAt(i,.pStatus)
+				if $$$ISERR(pStatus)
+				{
+					do ..AssertFail("Error viewing Actual Target Segment "_i,pStatus)
+					quit	
+				}
+				set segListExpected=segListExpected_$S($L(segListExpected)=0:"",1:"~")_oSeg.Name
+			}
+			if $$$ISERR(pStatus) continue  // Move to new XData TestCase message pair input
+			if (actualMessage.SegCount'=expectedMessage.SegCount)
+			{
+				Do ..AssertFail("Different number of Segmments in Target. Expected "_expectedMessage.SegCount_", Actual "_actualMessage.SegCount)
+				// Don't quit at this point yet
+			}
+			// Now compare the segment lists for sequence differences
+			set errMessage=..SegmentOrderErrorMessage(segListExpected,segListActual,.pStatus)
+			if $$$ISERR(pStatus)
+			{
+				Do ..AssertFail(errMessage,pStatus)
+				continue  // Move to new XData TestCase message pair input
+			}
+		} 
+		do ..Compare(expectedMessage,actualMessage,sourceMessage)
+	}
+]]></Implementation>
+</Method>
+
+<Method name="SegmentOrderErrorMessage">
+<Description><![CDATA[
+Given two list sof segments in format [Segment name 1]~[Segment name 2]~[Segment name n]
+find the first occurance of divergence and indicate this in a error message for example:<br/>
+
+Difference in Expected and Actual segments at segment number 8. Expected "MSH~EVN~PID~PV1~ORC~OBR~OBX~><" Actual "MSH~EVN~PID~PV1~ORC~OBR~OBX~>NTE<"]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>segListExpected:%String,segListActual:%String,*pStatus:%Status=$$$OK</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	set errMessage=""
+	if (segListExpected'=segListActual)
+	{
+		set highestNumberOfSegments=$S($L(segListExpected)>$L(segListActual):$L(segListExpected),1:$L(segListActual))
+		for i=1:1:highestNumberOfSegments {
+			if $Piece(segListExpected,"~",1,i)'=$Piece(segListActual,"~",1,i)
+			{
+				set errMessage="Difference in Expected and Actual segments at segment number "_i_". Expected """_
+					$Select(i=1:(">"_$P(segListExpected,"~")_"<"_$S($P(segListExpected,"~",i+1)="":"",1:"~")_$Piece(segListExpected,"~",2,999)),
+						1:($P(segListExpected,"~",1,i-1)_"~>"_$P(segListExpected,"~",i)_"<"_$Select($P(segListExpected,"~",i+1)="":"",1:"~"_$Piece(segListExpected,"~",i+1,999))))_
+					""" Actual """_
+					$Select(i=1:(">"_$P(segListActual,"~")_"<"_$S($P(segListActual,"~",i+1)="":"",1:"~")_$Piece(segListActual,"~",2,999)),
+						1:($P(segListActual,"~",1,i-1)_"~>"_$P(segListActual,"~",i)_"<"_$Select($P(segListActual,"~",i+1)="":"",1:"~"_$Piece(segListActual,"~",i+1,999))))_""""
+				set pStatus=$$$ERROR(5001,errMessage)
+				Quit
+			}
+		}
+	}
+	Quit errMessage
+]]></Implementation>
+</Method>
+
+<Method name="Compare">
+<Description><![CDATA[
+Each transform tester class should override this method to compare the input and output message
+utilising GetValueAt methods.
+expectedTarget - The expected output from a transform as a reult of given input
+actualTarget - The actual output generated by transformation at test time<br/>.
+source - The original source used for input to the transform at test time<br/>.
+Utilise the Asset macros to enforce expected behaviour about the transform<br/>.
+It is up to the implementer to decide how to validate the output of the transform
+either comparing:
+<ul><li>expectedTarget with actualTraget</li>
+<li>source with actualTarget</li>
+<li>mixture of both expectedTarget and source compared with actualTarget</li></ul>]]></Description>
+<FormalSpec>expectedTarget:%RegisteredObject,actualTarget:%RegisteredObject,source:%RegisteredObject</FormalSpec>
+<Implementation><![CDATA[
+	set ..SkipTest=1  // This test has not yet been impleemnted
+	do ..AssertFail("Override the Compare method with custom logic to provide Test behaviour")
+]]></Implementation>
+</Method>
+
+<Method name="AssertObjectExists">
+<Description>
+Return 0 = ASSERT fail
+Return 1 = ASSERT OK</Description>
+<FormalSpec>expectedTarget:%RegisteredObject=$$$NULLOREF,actualTarget:%RegisteredObject=$$$NULLOREF,description:%String=""</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	if '$IsObject(expectedTarget),'$IsObject(actualTarget) {
+		// Neither has value quit ok
+		Do r%Manager.LogAssert(1,"AssertObjectExists",description_" both expected and actual are null")
+		quit 1
+	} elseif $IsObject(expectedTarget),'$IsObject(actualTarget) {
+		Do r%Manager.LogAssert(0,"AssertObjectExists",description_" expected is object but actual is null")
+		quit 0	
+	} elseif '$IsObject(expectedTarget),$IsObject(actualTarget) {
+		Do r%Manager.LogAssert(0,"AssertObjectExists",description_" expected is null but actual is object")
+	} else {
+		Do r%Manager.LogAssert(1,"AssertObjectExists",description_" both expected and actual are objects")
+		quit 1	
+	}
+]]></Implementation>
+</Method>
+
+<Method name="AssertObjectListLengthEqual">
+<Description>
+Return 0 = ASSERT fail
+Return 1 = ASSERT OK</Description>
+<FormalSpec>expectedTarget:%ListOfObjects,actualTarget:%ListOfObjects,description:%String=""</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	if expectedTarget.Count()=actualTarget.Count() {
+		Do r%Manager.LogAssert(1,"AssertObjectListLengthEqual",description_" both expected and actual have "_expectedTarget.Count()_" items")
+		quit 1	
+	} elseif expectedTarget.Count()'=actualTarget.Count() {
+		Do r%Manager.LogAssert(0,"AssertObjectListLengthEqual",description_" expected has "_expectedTarget.Count()_" items but actual has "_actualTarget.Count())
+		quit 1
+	}
+]]></Implementation>
+</Method>
+
+<Method name="AssertListContainsPath">
+<Description><![CDATA[
+Constrain the output of a transformation to a range of values.
+Usecase 1:<br/.
+There is a side-effect when the first time a transform is run it has the first value.
+The second time a transform is run it has the second value.
+Subsequent transforms also have the second value.
+It is better to be able to constrain by unit tests the two possible values than to not constrain these output values at all.<br/>
+Usecase 2:<br/>
+Recieve order update messages by the Hospital System from a Radiology System.<br/>
+Validate the OrderStatus is constrained to a list of expected values.<br/>
+Description of parameters:<br/>
+pTarget - An instance of EnsLib.HL7.Message or EnsLib.HL7.Segment<br/>
+pTargetPath - The virtual document path to extract test value from. eg: "MSH:9.2" <br/>
+pList - An ObjectScript list containing a list of values for equality eg: $LISTBULID("AB","B","C")<br/>
+Usage :
+<example>
+do ..AssertListContainsPath(actualTarget,"OBR:ResultStatus",$LB("F","K"))
+</example>]]></Description>
+<FormalSpec>pTarget,pTargetPath,pList:%List=$LB()</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	if '$LISTVALID(pList) Quit 0
+	Set manager=r%Manager
+	set description=pTarget.DocType_"->"_pTargetPath
+	set vTarget=pTarget.GetValueAt(pTargetPath,,.pStatus)
+	if $$$ISERR(pStatus) {
+		Do ..AssertFail("Unable to access property path "_pTarget.DocType_"->"_pTargetPath,pStatus)
+		Quit 0
+	}
+	set (found,ptr)=0
+	set listLength=$LL(pList)
+	while $LISTNEXT(pList,ptr,match)
+	{
+		if match=vTarget set found=1 quit
+	}
+	if found=1 {
+		Do r%Manager.LogAssert(1,"AssertPathContains",description_" contains value """_vTarget_"""")
+		Quit 1
+	} else {
+		if listLength=1 {
+			Do r%Manager.LogAssert(0,"AssertPathContains",description_" does not contain the value """_$LG(pList,1)_"""")
+		} else {
+			Do r%Manager.LogAssert(0,"AssertPathContains",description_" does not contain any of the values """_$LISTTOSTRING($LIST(pList,1,listLength-1),""",""")_""" Or """_$LG(pList,listLength)_"""")
+		}
+		Quit 0
+	}
+]]></Implementation>
+</Method>
+
+<Method name="AssertListNotContainsPath">
+<Description><![CDATA[
+Converse of the Assert function AssertListContainsPath.<br/>
+Description of parameters:<br/>
+pTarget - An instance of EnsLib.HL7.Message or EnsLib.HL7.Segment<br/>
+pTargetPath - The virtual document path to extract test value from. eg: "MSH:9.2" <br/>
+pList - A cache list containing a list of values for equality eg: $LISTBULID("AB","B","C")<br/>
+Usage :
+<example>
+do ..AssertListNotContainsPath(actualTarget,"OBR:ResultStatus",$LB("F","K"))
+</example>]]></Description>
+<FormalSpec>pTarget,pTargetPath,pList:%List=$LB()</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	if '$LISTVALID(pList) Quit 0
+	Set manager=r%Manager
+	set description=pTarget.DocType_"->"_pTargetPath
+	set vTarget=pTarget.GetValueAt(pTargetPath,,.pStatus)
+	if $$$ISERR(pStatus) {
+		Do ..AssertFail("Unable to access property path "_pTarget.DocType_"->"_pTargetPath,pStatus)
+		Quit 0
+	}
+	set (found,ptr)=0
+	set listLength=$LL(pList)
+	while $LISTNEXT(pList,ptr,match)
+	{
+		if match=vTarget set found=1 quit
+	}
+	if found=1 {
+		Do r%Manager.LogAssert(0,"AssertListNotContainsPath",description_" contains value """_vTarget_"""")
+		Quit 1
+	} else {
+		if listLength=1 {
+			Do r%Manager.LogAssert(1,"AssertListNotContainsPath",description_" does not contain the value """_$LG(pList,1)_"""")
+		} else {
+			Do r%Manager.LogAssert(1,"AssertListNotContainsPath",description_" does not contain any of the values """_$LISTTOSTRING($LIST(pList,1,listLength-1),""",""")_""" Or """_$LG(pList,listLength)_"""")
+		}
+		Quit 0
+	}
+]]></Implementation>
+</Method>
+
+<Method name="AssertPathEqualsNotEmpty">
+<Description><![CDATA[
+Extending Assert method to validate that:<ul>
+<li>The expected value is not empty</li>
+<li>The actual value after transformation is not empty</li>
+<li>Both the expected value and the actual value match</li>
+</ul>]]></Description>
+<FormalSpec>source,sourcePath,target,targetPath,*pStatus:%Status=$$$OK</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	set description=source.DocType_"->"_sourcePath_"="_target.DocType_"->"_targetPath
+	set vSource=source.GetValueAt(sourcePath,,.pStatus)
+	if $$$ISERR(pStatus) {
+		Do ..AssertFail("Unable to access property path "_source.DocType_"->"_sourcePath)
+		Quit 0
+	}
+	if vSource="" {
+		Do $$$AssertNotEquals(vSource,"",description_":Source empty")
+		Quit 0
+	}
+	set vTarget=target.GetValueAt(targetPath,,.pStatus)
+	if $$$ISERR(pStatus) {
+		Do ..AssertFail("Unable to access property path "_target.DocType_"->"_targetPath)
+		Quit 0
+	}
+	if vSource="" {
+		Do $$$AssertNotEquals(vTarget,"",description_":Target empty")
+		Quit 0
+	}
+	Quit $$$AssertEquals(vSource,vTarget,description_":Expected="""_vSource_""", Actual="""_vTarget_"""")
+]]></Implementation>
+</Method>
+
+<Method name="AssertPathEquals">
+<Description>
+This method checks whether the access paths used in a DTL for assignment are actually valid 
+in additional for checking equality of values.</Description>
+<FormalSpec>source,sourcePath,target,targetPath,*pStatus:%Status=$$$OK,optional:%Boolean=0</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+	set description=source.DocType_"->"_sourcePath_"="_target.DocType_"->"_targetPath
+	set vSource=source.GetValueAt(sourcePath,,.pStatus1)
+	if $$$ISERR(pStatus1),'optional {
+		Do ..LogMessage("Part 1 optional="_optional)
+		Do ..AssertFail("Unable to access property path "_source.DocType_"->"_sourcePath)
+		set pStatus=pStatus1
+		Quit 0
+	}
+	set vTarget=target.GetValueAt(targetPath,,.pStatus2)
+	if $$$ISERR(pStatus),'optional {
+		Do ..LogMessage("Part 2 optional="_optional)
+		Do ..AssertFail("Unable to access property path "_target.DocType_"->"_targetPath)
+		set pStatus=pStatus1
+		Quit 0
+	}
+	/// If this is an optional segment and there is no actual segment
+	/// in both the expected and actual then no further action is required
+	if optional,$$$ISERR(pStatus1),$$$ISERR(pStatus2) quit
+	/// segment present to compare
+	Quit $$$AssertEquals(vSource,vTarget,description_":Expected="""_vSource_""", Actual="""_vTarget_"""")
+]]></Implementation>
+</Method>
+
+<Method name="AssertFail">
+<Description><![CDATA[
+A standard Assertion in other UnitTest frameworks.<br/>
+A standard method to trigger failure on UnitTest due to a known assertion fail.
+This method name makes the intention clearer in calling code]]></Description>
+<FormalSpec>message,pStatus=$$$OK</FormalSpec>
+<Implementation><![CDATA[
+	Set manager=r%Manager
+	Set:$$$ISERR(pStatus) message=message_"->"_$SYSTEM.Status.GetErrorText(pStatus)
+	Do manager.LogAssert(0,"AssertFail",message)
+]]></Implementation>
+</Method>
+
+<Method name="CorrelateMessage">
+<Description><![CDATA[
+classname - The fully package qualified class name of the test class extending DTLUnitTestBase<br/>
+xdataName - The full Name (including prefix and suffix) of an XData block containing an HL7 Message or Segment<br/>
+schema - The message schema (eg: 2.4:ADT_A05) or segment schema (eg: 2.4:MSH)
+args - Future use multidimensional parameter to extend behaviour<br/>
+<!--
+Testing
+Set segment=##class(UnitTest.DTL.HL7TestCase).CorrelateMessage("MEXX.Radiology.test.dtl.seg.TrakMshToGeRisPacsMsh","TESTMessageSource","TrakRAD:MSH",,.pStatus)
+-->]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[classname:%String,xdataName:%String,schema:%String,&args,*pStatus:%Status=$$$OK]]></FormalSpec>
+<ReturnType>%RegisteredObject</ReturnType>
+<Implementation><![CDATA[
+	set pStatus=$$$OK
+	if '##class(%Dictionary.CompiledClass).%ExistsId(classname)
+	{
+		set pStatus=$$$ERROR(5001,"Compiled class """_classname_""" not found.")
+		Quit $$$NULLOREF
+	}
+	
+	if '##class(%Dictionary.CompiledXData).%ExistsId(classname_"||"_xdataName) {
+		set pStatus=$$$ERROR(5001,"XData """_xdataName_""" not found in Compiled class """_classname_"""")
+		Quit $$$NULLOREF	
+	}
+	
+	set xdata=##class(%Dictionary.CompiledXData).%OpenId(classname_"||"_xdataName,0)
+	
+	// TODO - Validate that schema argument is correctly formatted
+	//   Currently only processing HL7 Message and Segment 
+	if schema?1.E1":"3AN.1(1"_"3AN) {
+	  set lines=""
+	  // strip out empty lines
+	  while 'xdata.Data.AtEnd
+	  {
+		set line=$ZSTRIP(xdata.Data.ReadLine(),"<w")
+		W !,"Line:",line
+		continue:line=""
+		continue:$Extract(line,1)="<" // ignore opening or closing XML tags and start CData tag
+		continue:$Extract(line,1)="]" // ignore ]]]]><![CDATA[> closing CDATA
+		set lines=lines_($S($L(lines)=0:"",1:$C(..#NewLine)))_line
+	  }
+	  
+	  set schemaName=$Piece(schema,":")
+	  set messageType=$P($Piece(schema,":",2),"_")
+	  set triggerEvent=$P($Piece(schema,":",2),"_",2)
+	
+	  if triggerEvent'=""
+	  {
+	  	  // This is an HL7 message schema
+	  	  set ret=##class(EnsLib.HL7.Message).ImportFromString(lines,.pStatus)
+		  quit:$$$ISERR(pStatus) $$$NULLOREF
+		  if '$IsObject(ret) {
+		    set pStatus=$$$ERROR(5001,"Unable to ImportFromString with classname_"""_classname_"""_XData """_xdataName_""" with Schema """_schema_"""")
+			Quit $$$NULLOREF
+	      }
+		  set ret.DocType=schema
+		  // Validates that the required segments and order of segments for Test Source and Target HL7 Messages
+		  // are present as defined in the HL7 schema definition
+		  set pStatus=ret.PokeDocType(schema)
+	  } else {
+	  	  // This is an HL7 segment schema
+		  set ret=##class(EnsLib.HL7.Segment).%New()
+		  set ret.DocType=schema
+		  do ret.SetValueAt($Piece(lines,$C(..#NewLine),1),"")
+		  set pStatus=ret.PokeDocType(schema)
+	  }
+	
+	
+	} elseif schema?1.E1.(1"."1.E).1(1"<"1.E1">") {
+		
+		// Format Package.ClassName<TagName>
+		// where TagName is optional
+		set correlateClass=$P(schema,"<")
+		//
+		set correlateElement=$P($P(schema,"<",2),">")
+		// Begin Region Correlate XData as Cache class from XML
+		// Assume this is a class name to correlate from XML
+		if '##class(%Dictionary.CompiledClass).%ExistsId(correlateClass)
+		{
+			set pStatus=$$$ERROR(5001,"Invalid Class name for correlation """_correlateClass_""". Compliled class does not exist.")
+			Quit $$$NULLOREF
+		}
+		
+		// Check that the TransformClass sub-classes
+		// This could be moved into a compile time generator method
+		// SubClass Query is not working as expected for %XML.Ad
+		set found=0
+		Set rs=##class(%ResultSet).%New()
+		Set rs.ClassName="%Dictionary.ClassDefinition"
+		Set rs.QueryName="SubclassOf"
+		Set pStatus=rs.Execute("%XML.Adaptor")
+		if $$$ISERR(pStatus)
+	    {
+		  set pStatus=$SYSTEM.Status.AppendStatus($$$ERROR(5001,"Invalid Class name for correlation """_correlateClass_""". Does not implement %XML.Adapter."),pStatus)
+		  Quit $$$NULLOREF
+	    }
+	    While rs.%Next() {
+		  //do ..LogMessage("Name:",rs.Get("Name"))
+		  if rs.Get("Name")=correlateClass {
+		    set found=1
+		    quit  // Quit while loop
+		  }
+		}
+	    Set rs=""
+	    if 'found {
+		  set pStatus=$$$ERROR(5001,"Invalid Class name for correlation """_correlateClass_""". Does not implement %XML.Adapter.")
+		  quit $$$NULLOREF
+	    }
+	    
+	    set xreader=##class(%XML.Reader).%New()
+	    set pStatus=xreader.OpenStream(xdata.Data)
+	    if $$$ISERR(pStatus)
+	    {
+		   set pStatus=$SYSTEM.Status.AppendStatus($$$ERROR(5001,"Error reading Test XData block """_classname_"||"_xdataName_""" for correlation with class """_correlateClass_"""."),pStatus)
+		   quit $$$NULLOREF
+	    }
+	    If correlateElement="" {
+		  // Correlate on specific element name
+		  Do xreader.Correlate(correlateElement,correlateClass)   
+	    } else {
+		  // Correlate on root element regardless of element name
+		  Do xreader.CorrelateRoot(correlateClass)    
+	    }
+	    // Supports reading only a single serlaised object from an XData Block
+	    if xreader.Next(.ret,.pStatus) {
+		   if $$$ISERR(pStatus)
+	       {
+		       set pStatus=$SYSTEM.Status.AppendStatus($$$ERROR(5001,"Error correlating Test XData block """_classname_"||"_xdataName_""" to class """_correlateClass_"""."),pStatus)	       
+		       quit $$$NULLOREF
+	       }
+	    }
+	    do xreader.Close()  
+	
+        // EndRegion Correlate XData as Cache class from XML
+	} else {
+		set pStatus=$$$ERROR(5001,"Unsupported schema format """_schema_""" for Unit Test")
+		Quit $$$NULLOREF
+	}	
+	// Return the correlated Message or Segment
+	Quit ret
+]]></Implementation>
+</Method>
+
+<Method name="Debug">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	if '$Data(^UnitTestRoot) {
+		Write "^UnitTestRoot global not set up"
+		quit
+	}
+	//set unitTestDir=$G(^UnitTestRoot)_$S($E($G(^UnitTestRoot),1)="/":"/",1:$P($G(^UnitTestRoot),"\")_"\")_..#TestSuite
+	//##class(
+	set sep=$S($G(^UnitTestRoot)["/":"/",1:"\")
+	set unitTestDir=$G(^UnitTestRoot)_$S($E($G(^UnitTestRoot),*)=sep:"",1:sep)_..#TestSuite
+	if '##class(%File).DirectoryExists(unitTestDir) {
+		Write "UnitTest directory does not exist locally "_unitTestDir
+		quit
+	}
+	do ##class(%UnitTest.Manager).DebugRunTestCase(..#TestSuite,..%ClassName(1),"/noload/norecursive","TestMessage")
+]]></Implementation>
+</Method>
+
+<Method name="GenerateTestCases">
+<Description><![CDATA[
+matchPackage - The facility will search for any transform classes that match this package path<br/>
+targetPackage - The base target page to generate new TestCase classes in<br/>
+copySubPackageNames - If enabled generate TestCase classes in sub packages as discovered from matched transforms<br/>
+addToProject - If specified. Attempt to automatically add classes to the named Studio Package.
+listOnly - If enabled only list the classes that would be generated
+pStatus - List of errors encountered. 
+<!--
+List Only Test, match ending in dot
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+List Only match not ending in dot
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+List Only, No copy sub packages, match ending in dot
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+List Only, No copy sub packages, match not ending in dot
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Actually generate TestCases
+match ending in dot, follow sub package name convention
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
+-->]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>matchPackage="",targetPackage="",copySubPackageNames=1,addToProject="",listOnly=0,verbose=0,*pStatus:%Status=$$$OK</FormalSpec>
+<Implementation><![CDATA[
+	// strip trailing "." on target Package
+	if $Extract(targetPackage,*)="." {
+		set targetPackage=$Extract(targetPackage,1,*-1)
+	}	
+	// Validate input parameters
+	if matchPackage="" {
+		W !,"Creating TestCases for ALL transformations"
+	}
+	if targetPackage="" {
+		W !,"Parameter targetPackage is empty. MUST be supplied"
+		set pStatus=$$$ERROR(5001,"Parameter targetPackage is empty. MUST be supplied")
+		Quit	
+	}
+	
+	Kill ^||TransSubClass,^||TransSubNew
+	// Create a static list of existing transsform classes
+	Set rs=##class(%ResultSet).%New()
+	Set rs.ClassName="%Dictionary.ClassDefinition"
+	Set rs.QueryName="SubclassOf"
+	Set pStatus=rs.Execute("Ens.DataTransformDTL")
+	if $$$ISERR(pStatus)
+	{
+		Write !,"Error. Unable to load subclasses of Ens.DataTransformDTL"
+		set pStatus=$$$ERROR(5001,"Unable to load subclasses of Ens.DataTransformDTL")
+		GoTo End
+	}
+	set lengthMatchPackage=$Length(matchPackage)
+	While rs.%Next() {
+		set transname=rs.Get("Name")
+		// ignore any classes outside match Package scope
+		if ($Extract(transname,1,lengthMatchPackage)'=matchPackage)
+		{
+			W:verbose !,"Skipping class ",transname," not matched"
+			continue	
+		}
+		// Follow the subpackage structure for target packages
+		if copySubPackageNames {
+			// Added sub packages and source classname to target package
+			set targetClass=targetPackage_"."_$Piece($Extract(transname,lengthMatchPackage+1,*),".",$Select($E(matchPackage,*)=".":1,1:2),99)
+		} else {
+			// Just append source classname to target package
+			set targetClass=targetPackage_"."_$Piece(transname,".",$Length(transname,"."))
+		}
+		if ##class(%Dictionary.ClassDefinition).%ExistsId(targetClass)
+		{
+			W:verbose !,"Skipping generation of TestCase """,targetClass,""" Reason - already exists"
+			continue
+		}
+		Set ^||TransSubNew(targetClass)=transname
+	}
+	set targetClass=""
+	for {
+		set targetClass=$Order(^||TransSubNew(targetClass))
+		quit:targetClass=""
+		
+		set transname=^||TransSubNew(targetClass)
+		if listOnly
+		{
+			W !,"Would call Do ..CreateTestCase("
+			W !,"    ",targetClass,","
+			W !,"    ",transname,")"
+		}
+		else {
+			Do ..CreateTestCase(targetClass,transname)
+		}
+	}
+	
+End
+	Kill ^||TransSubClass
+	Kill ^||TransSubNew
+	Quit
+]]></Implementation>
+</Method>
+
+<Method name="CreateTestCase">
+<Description><![CDATA[
+<!-- Testing
+Do ##class(UnitTest.DTL.HL7TestCase).CreateTestCase("MEXX.Radiology.test.dtl.seg.GePacsRisEvnToTrakEvn","MEXX.Radiology.dtl.seg.GePacsRisEvnToTrakEvn")
+-->]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>targetClassName,transformClass</FormalSpec>
+<Implementation><![CDATA[
+	if ##class(%ClassDefinition).%ExistsId(targetClassName)
+	{
+		Write !,"Error creating TestCase. Class: ",!,"  ",targetClassName,!,"  ...already exists"
+		Quit
+	}
+	
+	set class=##class(%Dictionary.ClassDefinition).%New()
+	set class.Name=targetClassName
+	set class.Super=..%ClassName(1)
+	set class.ProcedureBlock=1
+	
+	// Set Parameter TransformClass
+	set param=##class(%Dictionary.ParameterDefinition).%New()
+	set param.Name="TransformClass"
+	set param.Default=transformClass
+	do class.Parameters.Insert(param)
+	
+	#dim xdataDTL As %Dictionary.CompiledXData
+	set xdataDTL=##class(%Dictionary.CompiledXData).%OpenId(transformClass_"||DTL",0)
+	if '$IsObject(xdataDTL) {
+		Write !,"Unable to open DTL XDATA for transform ",transformClass
+		Quit
+	}
+	
+	Set (targetSchema,sourceSchema)=""
+	Set (targetClass,sourceClass)=""
+	Set found=0
+	For {
+		Quit:xdataDTL.Data.AtEnd
+		set line=xdataDTL.Data.ReadLine()
+		if line["<transform",found=0 {
+			Set found=1
+			// <transform sourceClass='EnsLib.HL7.Segment' targetClass='EnsLib.HL7.Segment' sourceDocType='TrakRAD:MSH' targetDocType='GePacsRis:MSH' create='new' language='objectscript' >
+			set sourceSchema=$Piece($Piece(line,"sourceDocType='",2),"'")
+			set sourceType=$Piece($Piece(line,"sourceClass='",2),"'")
+			set targetSchema=$Piece($Piece(line,"targetDocType='",2),"'")
+			set targetType=$Piece($Piece(line,"targetClass='",2),"'")
+			continue	
+		} elseif line["<assign" {
+			//<assign value='source.{EventTypeCode}' property='target.{EventTypeCode}' action='set' />
+			// look for piece2 of property='
+			// look for piece2 of target.{
+			// look for piece1 of "}"
+			
+			// Note whether the "source" is referenced at all in an assignement statement.
+			// Note that a target path may be set in seveal places. If one of these uses "source" then assume it should be
+			// included in the generated unit test compare method
+			
+			// A target path could be set to all static values
+			// XML Decode these values
+			
+			// Review Source and Target term extraction based on actual example DTL implementations
+			set sourceTerm=$Piece($Piece(line,"' property='"),"'",2)
+			
+			set targetTerm=$Piece($Piece($Piece(line," property='",2),"target.{",2),"}")
+			// Assume we are not interested in the condition where the whole source has been copied to the whole target
+			if targetTerm'="" {
+				
+				// Flag has source reference
+				// Flag any static values
+				// Starts with Quote ("), Ends With Quote (") - assume this is a static value
+				// Appends values to create comma seperated list
+				if $E(sourceTerm,1)="""",$E(sourceTerm,*)="""" {
+					set:'$Data(targetTerms("V",targetTerm)) targetTerms("V",targetTerm)=","
+					if 
+					set targetTerms("V",targetTerm)=$G(targetTerms("V",targetTerm))_","_$E(sourceTerm,2,*-1)
+				}
+				
+				// Ignore if we have already come across this path expression
+				if $Data(targetTerms("U",targetTerm))=0
+				{
+					set targetTerms("U",targetTerm)=""
+					// Build up a list of targets in the order that they are discovered in the DTL document
+					set targetSeq=$Increment(targetTerms("T"))
+					set targetTerms("T",targetSeq)=targetTerm
+										
+				} 
+			}	
+		}
+	}
+	
+	// set Parameter SourceSchema
+	set param2=##class(%Dictionary.ParameterDefinition).%New()
+	set param2.Name="SourceSchema"
+	// TODO - Review to coreelate on root to make tagname optional
+	set param2.Default=$S(sourceSchema'="":sourceSchema,1:sourceType_"<TestResult>")
+	do class.Parameters.Insert(param2)
+	
+	// Set Parameter TargetSchema
+	set param3=##class(%Dictionary.ParameterDefinition).%New()
+	set param3.Name="TargetSchema"
+	set param3.Default=targetSchema
+	do class.Parameters.Insert(param3)
+	
+	
+	#dim xdata1 As %Dictionary.XDataDefinition
+	set xdata1=##class(%Dictionary.XDataDefinition).%New()
+	set xdata1.Name="TESTMessageSource"
+	Do xdata1.Data.WriteLine("<test><![CDATA[")
+	Do xdata1.Data.WriteLine("<!-- Your Source HL7 Message or Segment content goes here -->")
+	Do xdata1.Data.WriteLine("]]]]><![CDATA[></test>")
+	do class.XDatas.Insert(xdata1)
+	
+	#dim xdata2 As %Dictionary.XDataDefinition
+	set xdata2=##class(%Dictionary.XDataDefinition).%New()
+	set xdata2.Name="TESTMessageTarget"
+	Do xdata2.Data.WriteLine("<test><![CDATA[")
+	Do xdata2.Data.WriteLine("<!-- Your Expected output for HL7 Message or Segment content goes here -->")
+	Do xdata2.Data.WriteLine("]]]]><![CDATA[></test>")
+	do class.XDatas.Insert(xdata2)
+	
+	// Add method to override
+	set compMethod=##class(%Dictionary.MethodDefinition).%New()
+	set compMethod.Name="Compare"
+	set compMethod.FormalSpec="expectedTarget:"_targetType_",actualTarget:"_targetType_",source:"_sourceType
+	do compMethod.Implementation.WriteLine(" // Add your path assertions here. For example: //")
+	
+	/// if there were no assertions to generate provide at least one example as a code comment for demonstration
+	if $Order(targetTerms("T",""))="" {
+		if targetType="EnsLib.HL7.Message" {
+			do compMethod.Implementation.WriteLine(" // do ..AssertPathEquals(expectedTarget,""EVN:EventTypeCode"",actualTarget,""EVN:EventTypeCode"")")
+		} else {
+			do compMethod.Implementation.WriteLine(" // do ..AssertPathEquals(expectedTarget,""UniversalServiceID.identifier"",actualTarget,""UniversalServiceID.identifier"")")
+		}
+		do compMethod.Implementation.WriteLine(" do ..LogMessage(""No TestCase Compare assertions to check"")")
+	}
+	
+	set i=""
+	for {
+		set i=$Order(targetTerms("T",i))
+		quit:i=""
+		set targetTerm=targetTerms("T",i)
+		continue:targetTerm=""
+		// Re-organise order of targetTerms to faciliate efficient nesting of FOR loop itteration
+		do ..PathGrouper(targetTerm,,.ary)
+	}
+	
+	// Generate method code for assetions.
+	// Passes Method Stream, array of assertions. 3rd argument "0" = do not generate debugging output
+	Do ..PathGrouperOutput(compMethod.Implementation,.ary,0)
+	
+	set compMethod.Description="Each TestCase should override this method to compare the input and output message"_$C(10)_
+		"/// utilising Message or Segment GetValueAt virtual path accessors."_$C(10)_
+		"/// expectedTarget - The expected output from a transform as a reult of given input"_$C(10)_
+		"/// actualTarget - The actual output generated by transformation at test time<br/>."_$C(10)_
+		"/// source - The original source used for input to the transform at test time<br/>."_$C(10)_
+		"/// Utilise the Asset macros to enforce expected behaviour about the transform<br/>."_$C(10)_
+		"/// It is up to the implementer to decide how to validate the output of the transform"_$C(10)_
+		"/// either comparing:"_$C(10)_
+		"/// <ul><li>expectedTarget with actualTraget</li>"_$C(10)_
+		"/// <li>source with actualTarget</li>"_$C(10)_
+		"/// <li>mixture of both expectedTarget and source compared with actualTarget</li></ul>"
+	
+	do class.Methods.Insert(compMethod)
+	set class.Description="Class Generated on "_$ZDT($H,3)_" using TestCase Generator V"_
+		..#GeneratorVersion_$C(10)_
+		"/// <!--"_$C(10)_
+		"/// do ##class("_targetClassName_").Debug()"_$C(10)_
+		"/// -->"
+	
+	set pStatus=class.%Save()
+	if $$$ISERR(pStatus) {
+		W !,"Error trying to save new TestCase ",targetClassName
+		Do $SYSTEM.Status.DisplayError(pStatus)
+		Quit
+	}
+	W !,"Created TestCase: ",targetClassName
+]]></Implementation>
+</Method>
+
+<Method name="PathGrouper">
+<Description><![CDATA[
+This method is called repeatedly for each TargetPath used in DTL implementation
+It will roughtly follow the order of DTL implementation.
+However where related collections TargetPaths are referenced via a loop instead of a numeric index
+these related TargetPaths will be re-organised into groups for efficient Loops for assertions
+The reorganising of groups also supports nested looping for assertions.<br/>
+INPUT example:
+<EXAMPLE>
+Do ..PathGrouper("MSH:SendingApplication.namespaceID",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:SetIDPID",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientIdentifierList(IDSeq).ID",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientIdentifierList(IDSeq).assigningauthority.namespaceID",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientIdentifierList(IDSeq).identifiertypecodeID",,.ary)
+Do ..PathGrouper("PIDgrp.PID:PatientIdentifierList(IDSeq).ID",,.ary)
+Do ..PathGrouper("PIDgrp.PID:PatientIdentifierList(IDSeq).assigningauthority.namespaceID",,.ary)
+Do ..PathGrouper("PIDgrp.PID:PatientIdentifierList(IDSeq).identifiertypecodeID",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientName(1).familyname.surname",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientName(1).givenname",,.ary)
+Do ..PathGrouper("PIDgrpgrp(1).PIDgrp.PID:PatientName(1).prefix",,.ary)
+</EXAMPLE>
+OUTPUT example:
+<EXAMPLE>
+ary("|","c")=3
+ary("|0001","p")="MSH:SendingApplication.namespaceID"
+ary("|0002","c")=3
+ary("|0002","n")="PIDgrpgrp(1)"
+ary("|0002|0001","p")=".PIDgrp.PID:SetIDPID"  // Leaf Node with data
+ary("|0002|0002","c")=3
+ary("|0002|0002","n")=".PIDgrp.PID:PatientIdentifierList(*)"  // Non-leaf node. The "*" signifies looping on every item
+ary("|0002|0002|0001","p")=".ID"  // Leaf Node with data
+ary("|0002|0002|0002","p")=".assigningauthority.namespaceID"  // Leaf Node with data
+ary("|0002|0002|0003","p")=".identifiertypecodeID"  // Leaf Node with data
+ary("|0002|0003","c")=3
+ary("|0002|0003","n")=".PIDgrp.PID:PatientName(1)"  // Non-leaf node. The "1" signifies a single numeric index. This is not a loop.
+ary("|0002|0003|0001","p")=".familyname.surname"  // Leaf Node with data
+ary("|0002|0003|0002","p")=".givenname"  // Leaf Node with data
+ary("|0002|0003|0003","p")=".prefix"  // Leaf Node with data
+ary("|0003","c")=3
+ary("|0003","n")="PIDgrp.PID:PatientIdentifierList(*)"  // Non-leaf node. The "*" signifies looping on every item
+ary("|0003|0001","p")=".ID"  // Leaf Node with data
+ary("|0003|0002","p")=".assigningauthority.namespaceID"  // Leaf Node with data
+ary("|0003|0003","p")=".identifiertypecodeID"  // Leaf Node with data
+</EXAMPLE>]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[path:%String,parentPosition:%String=..#PositionSeperator,&ary]]></FormalSpec>
+<Implementation><![CDATA[
+	// Extract the first section of path
+	set current=$P(path,"(")
+	set seq=$P($P(path,"(",2),")")
+	if seq'="" {
+		if seq'?1.N set seq="*"  // if sequence is not numeric then brand as a general for loop
+	}
+	set pathExp=$S(seq'="":current_"("_seq_")",1:current)
+	set parentPathLength=$L(parentPosition)
+	
+	// Look for previous group declaration
+	set currentPosition=parentPosition
+	for {
+		set currentPosition=$Order(ary(currentPosition))
+		quit:currentPosition=""  // if currentPosition is empty then this path has not been seen before
+		if $E(currentPosition,1,parentPosition) {
+			// Have overshot the parent path
+			// Next group key is required
+			set currentPosition=""
+			quit	
+		}
+		
+		quit:$G(ary(currentPosition,"p"))=pathExp  // currentPosition equals previous grouping position - leaf node
+		quit:$G(ary(currentPosition,"n"))=pathExp  // currentPosition equals previous grouping position - non-leaf node
+	}
+	if currentPosition="" {
+		set currentPosition=..#PositionSeperator_$TR($J($I(ary(parentPosition,"c")),4)," ","0")
+		set:parentPosition'=..#PositionSeperator currentPosition=parentPosition_currentPosition
+	}
+	set nextPath=$P(path,")",2,99)
+	
+	if '$D(ary(currentPosition,"p",pathExp)) {
+		if (nextPath="") {
+			// this is a leaf node with data
+			// seq can be empty or numeric or *
+			set ary(currentPosition,"p")=pathExp
+		} else {
+			// expect seq to be numeric or *
+			set ary(currentPosition,"n")=pathExp
+		}
+	}
+	if nextPath'="" {
+	  // There is a nested sub-path to process  	
+	  do ..PathGrouper(nextPath,currentPosition,.ary)
+	}
+]]></Implementation>
+</Method>
+
+<Method name="PathGrouperOutput">
+<Description>
+Generates the cache object script commands for default unit test comparitor method</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[code:%Stream.Object,&ary,debug:%Boolean=0]]></FormalSpec>
+<Implementation><![CDATA[
+	W:debug !,"In PathGrouperOutput"
+	set level=0
+	set node="|"  // ignore root
+	for {
+		set node=$Order(ary(node))
+		quit:node=""
+		set nodeLevel=$L(node,"|")-1
+		
+		W:debug !,"************************************"
+		W:debug !,"* node:",node," * "
+		W:debug !,"************************************"
+		W:debug !,"  ",$G(ary(node,"n"),$G(ary(node,"p")))
+		W:debug !,"  Start TearDown"
+		// Teardown obsolete nodes
+		// Count up from base to see what has changed
+		// Look for the first difference to invalidate
+		set invalid=0
+		set nci=""
+		kill loops
+		for  {
+			set nci=$O(pathExp(nci))
+			quit:nci=""
+			W:debug !,"  nci=",nci
+			set testNode=$P(node,"|",1,nci+1)
+			W:debug !,"  testNode=",testNode
+			
+			if testNode'="",pathExp(nci,"e")'=$G(ary(testNode,"n")),pathExp(nci,"e")'=$G(ary(testNode,"p")) {
+			  set invalid=1
+			  W:debug !,"  invalid at nci=",nci, " with ",pathExp(nci,"e")
+			}
+			if (invalid=1) {
+			  if $D(pathExp(nci,"f")) {
+				set loops(nci)=""
+			  }
+			  W:debug !,"// killing pathExp(""",nci,""")"
+			  Kill pathExp(nci)
+			}
+		}
+		// closing the loops in the correct order for visual formating
+		set nci=""
+		for {
+		  set nci=$O(loops(nci),-1)
+		  quit:nci=""
+		  W:debug !,"// Close a previous * loop"
+		  W:debug !,..Padding(nci),"}"
+		  do code.WriteLine(..Padding(nci)_"}")
+		}			
+				
+		W:debug !,"pathExp after TearDown is",!
+		if debug zw pathExp
+		W:debug !,"  Completed TearDown"
+		
+		// Build-up additional nodes with FOR loops as necessary
+		set nci=$Order(pathExp(""),-1)+1
+		//set:nci=0 nci=1
+		W:debug !,"  nci=",nci
+		W:debug !,"  nodeLevel=",nodeLevel
+		W:debug !,"  node=",node
+		for level=nci:1:nodeLevel {
+			
+			W:debug !,"  level=",level
+			set testNode=$P(node,"|",1,level+1)
+			
+			W:debug !,"  testNode=",testNode
+			if $Data(ary(testNode,"p")) {
+				set pathExp(level,"e")=$G(ary(testNode,"p"))
+			} elseif $Data(ary(testNode,"n")) {
+				set pathExp(level,"e")=$G(ary(testNode,"n"))
+			}
+			// Initialise FOR LOOP as necessary
+			if $E(pathExp(level,"e"),*-2,*)="(*)" {
+			    set pathExp(level,"f")=""
+				// TODO: Initialise For loop
+				W:debug !,..Padding(level)_"set FOR"_level_"COUNT=expectedTarget.GetValueAt(""",..GetPathExp(.pathExp,1),""")"
+				do code.WriteLine(..Padding(level)_"set FOR"_level_"COUNT=expectedTarget.GetValueAt("""_..GetPathExp(.pathExp,0)_""")") 
+				W:debug !,..Padding(level)_"for FOR"_level_"=1:1:FOR"_level_"COUNT {",!
+				do code.WriteLine(..Padding(level)_"for FOR"_level_"=1:1:FOR"_level_"COUNT {")
+			}
+		}
+		W:debug !,"pathExp after Build-Up is",!
+		W:debug !,"  Completed Build-Up"
+		
+		// If this is a leaf node then include for assertion
+		if $D(ary(node,"p")) {
+		  // Write Assertion	
+		  set exp=..GetPathExp(.pathExp,1)
+		  W:debug !,..Padding(level)_"do ..AssertPathEquals(expectedTarget,""",exp,""",actualTarget,""",exp,""")"
+		  do code.WriteLine(..Padding(level)_"do ..AssertPathEquals(expectedTarget,"""_exp_""",actualTarget,"""_exp_""")")
+		}
+	
+	}
+	
+	// Now close any open loops
+	set nci=""
+	for  {
+	  set nci=$O(pathExp(nci),-1)
+	  quit:nci=""
+	  
+	  if $D(pathExp(nci,"f")) {
+		W:debug !,"// Close a previous * loop ",$G(pathExp(nci,"e"))
+		W:debug !,..Padding(nci),"}"
+		do code.WriteLine(..Padding(nci)_"}")
+	  }
+			
+	}
+	
+	W:debug !,"Out PathGrouperOutput"
+]]></Implementation>
+</Method>
+
+<Method name="Padding">
+<Description>
+Used to indent generated code</Description>
+<ClassMethod>1</ClassMethod>
+<CodeMode>expression</CodeMode>
+<FormalSpec>level</FormalSpec>
+<Implementation><![CDATA[$E("                                                              ",1,(level*2))
+]]></Implementation>
+</Method>
+
+<Method name="GetPathExp">
+<Description><![CDATA[
+Given an array pieces of a TargetPath
+reconstitute this into a target path string
+<EXAMPLE>
+	USER>set pathExp(1,"e")="PIDgrpgrp(1)"
+	USER>set pathExp(2,"e")=".PIDgrp.NTE(FOR2)"
+	USER>set pathExp(3,"e")=":Comment(*)"
+	USER>Write !,"no resloop:",..GetPathExp(.pathExp,0)
+no resloop:PIDgrpgrp(1).PIDgrp.NTE(FOR2):Comment(*)
+
+	USER>Write !,"is resloop:",..GetPathExp(.pathExp,1)
+	is resloop:PIDgrpgrp(1).PIDgrp.NTE(FOR2):Comment(FOR3)
+
+	USER>set pathExp(4,"e")=".property"
+	USER>Write !,"no resloop:",..GetPathExp(.pathExp,0)
+no resloop:PIDgrpgrp(1).PIDgrp.NTE(FOR2):Comment(FOR3).property
+	USER>Write !,"is resloop:",..GetPathExp(.pathExp,1)
+is resloop:PIDgrpgrp(1).PIDgrp.NTE(FOR2):Comment(FOR3).property
+</EXAMPLE>
+resLoop=0<br/>
+When the last part of a target path being used to initialise a loop retain the "*" looping character.<br/>
+resLoop=1<br/>
+When the last part of a target path being used reference a path in the context of a loop. Substitue "*" for "FOR#" variable.<br/>]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&pathExp,resLoop=0]]></FormalSpec>
+<Implementation><![CDATA[
+	set i=""
+	set ret=""
+	set lastLoop=0
+	set last=$O(pathExp(i),-1)
+	for {
+		set i=$O(pathExp(i),-1)
+		quit:i=""
+		set path=$G(pathExp(i,"e"))
+		//W !,"**i=",i,": path=",path
+		if $E(path,*-2,*)="(*)" {
+		    set lastLoop=i
+		    quit
+		}
+	}
+	
+	set i=""
+	for {
+		set i=$O(pathExp(i))
+		quit:i=""
+		set path=$G(pathExp(i,"e"))
+		
+		// Only affects loop "*" paths
+		//  When NOT resLoop AND lastloop AND last path piece NO substitute
+		//  Otherwise Substitute "*" for "FOR#"
+		if (($E(path,*-2,*)="(*)")&&('((i=lastLoop)&&(i=last)&&(resLoop=0)))) {
+		    set path=$E(path,1,*-3)_"(""_FOR"_i_"_"")"
+		}
+		set ret=ret_path
+	}
+	quit ret
+]]></Implementation>
+</Method>
+
+<Method name="UniqueAddToArray">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[val="",&ary]]></FormalSpec>
+<Implementation><![CDATA[
+	quit:val=""
+	set i=""
+	for {
+		set i=$O(ary(i))
+		quit:i=""
+		quit:$G(ary(i))=val
+	}
+	set ary($I(ary))=val
+]]></Implementation>
+</Method>
+
+<Method name="ListFromArray">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&ary]]></FormalSpec>
+<Implementation><![CDATA[
+	set ret=""
+	set first=1
+	set i=""
+	for {
+		set i=$O(ary(i))
+		quit:i=""
+		set ret=$S(first:ret=ary(i),1:ret_","_ary(i))
+		set first=0
+	}
+	Quit $LISTFROMSTRING(ret)
+]]></Implementation>
+</Method>
+
+<Method name="AddTestFromMsgHeader">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>testName:%String,sourceMsgHeaderId:%Integer</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set tSC=$$$OK
+	
+	Quit:..%ClassName()="HL7TestCase"
+	if (..%ClassName()="HL7TestCase")
+	{
+		set tSC=$$$ERROR(5001, "Not allowed to define Test messages on """_..%ClassName(1))
+		quit tSC	
+	}
+	
+	// TODO check that the test class is not deployed
+	
+#dim sourceMsgHeader as Ens.MessageHeader
+	// Open the msg
+	set sourceMsgHeader=##class(Ens.MessageHeader).%OpenId(sourceMsgHeaderId,0)
+	if ('$IsObject(sourceMsgHeader))
+	{
+		set tSC=$$$ERROR(5001, "Ens Message Header """_sourceMsgHeaderId_""" not found")
+		quit tSC
+	}
+	
+	/// An HL7 message example 2.4:ADT_A05
+    /// An HL7 segment example 2.4:MSH
+    //Parameter SourceSchema = "2.4:ADT_A05";
+
+    /// An HL7 message example 2.4:ADT_A05
+    /// An HL7 segment example 2.4:MSH
+    set className=sourceMsgHeader.MessageBodyClassName
+    set sourceId=sourceMsgHeader.MessageBodyId
+	
+	// If the test name is blank then generate one
+	if (sourceMsgHeader.MessageBodyClassName="Ens.HL7.Message")
+	{
+		
+	} elseif (sourceMsgHeader.MessageBodyClassName="Ens.HL7.Segment")
+	{
+		
+	} else {
+		// Assume this is an XML Adaptor correlated type
+		//set sourceClassname
+	}
+]]></Implementation>
+</Method>
+
+<Method name="AddTestFromMessageBody">
+<Description><![CDATA[
+Populate Test XData blocks with message content
+Parameters:<br/>
+<ol>
+<li>sourceClassname - </li>
+<li>sourceId</li>
+<li>generateDTLResult</li>
+<li>sourceXdataName</li>
+<li>targetXdataName</li>
+</ol>
+set tSC=##class(Test.dtl.TestResultToHL7ORU).AddTestFromMessageBody("MessageClassName",2790,1,.sourceXdataName,.targetXdataName)]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>sourceClassname:%String="",sourceId:%Integer=0,generateDTLResult:%Boolean=0,*sourceXdataName,*targetXdataName=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	#dim sourceObj as %Persistent
+	#dim targetObj as %Persistent
+	#dim sourceXData as %Dictionary.XDataDefinition
+	#dim targetXData as %Dictionary.XDataDefinition
+	#dim class as %Dictionary.ClassDefinition
+	
+	set tSC=$$$OK
+	
+	Quit:..%ClassName()="DTLTestCaseBase"
+	if (..%ClassName()="DTLTestCaseBase")
+	{
+		set tSC=$$$ERROR(5001, "Not allowed to define Test messages on """_..%ClassName(1))
+		quit tSC	
+	}
+	if (sourceClassname="")
+	{
+		set tSC=$$$ERROR(5001,"Parameter sourceClassname is empty")
+		quit tSC	
+	}
+	// Check source message class is defined on this system
+	if ('##class(%Dictionary.ClassDefinition).%ExistsId(sourceClassname))
+	{
+		set tSC=$$$ERROR(5001,"No Class Defintion found for sourceClassname: ",sourceClassname)
+		quit tSC
+	}
+	// Check source message exists
+	if ('$CLASSMETHOD(sourceClassname,"%ExistsId",sourceId))
+	{
+		set tSC=$$$ERROR(5001,"No instance of "_sourceClassname_" found with id of "_sourceId)
+		quit tSC
+	}
+
+	// Open the source message - no locking
+	set sourceObj=$CLASSMETHOD(sourceClassname,"%OpenId",sourceId,0,.tSC2)
+	if ('$IsObject(sourceObj)) {
+		set tSC=$$$ERROR(5001,"Unable to open instance of "_sourceClassname_" with id of "_sourceId_" by "_$USERNAME_" on "_$ZDT($H,3))
+		quit $SYSTEM.Status.AppendStatus(tSC,tSC2)
+	}
+	
+	// Generate new XData blocks with incrementing Test Name pair
+	set tSC=..NextTestXData(generateDTLResult,.sourceXData,.targetXData)
+	Quit:$$$ISERR(tSC) tSC
+	
+	set tSC=..SerialiseToXData(sourceObj,sourceXData.Data,"Generated SourceMessage. Class:"_sourceClassname_" ID was "_sourceId_" by "_$USERNAME_" on "_$ZDT($H,3))
+	Quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Error serialising Source XData"),tSC)
+	
+	if (generateDTLResult)
+	{
+		set ok=1
+		try {
+			set tSC=$CLASSMETHOD(..#TransformClass,"Transform",sourceObj,.targetObj)
+			
+			//Do $SYSTEM.OBJ.Dump(targetObj)
+			set ok=2
+			if ($$$ISOK(tSC))
+			{
+				set tSC=..SerialiseToXData(targetObj,targetXData.Data,"Generated TargetMessage via Transform Class:"_targetObj.%ClassName(1))
+				set ok=3
+			}
+			
+		} catch {
+			if ok=1 {
+			  set tSC=$$$ERROR(5001,"Unable to Transform source class "_sourceClassname_" with id "_sourceId_" with Transform "_..#TransformClass)
+			} elseif ok=2 {
+			  set tSC=$$$ERROR(5001,"Error serialising Target XData with class "_targetObj.%ClassName(1))
+			} else {
+			  set ok=0
+			  set tSC=$$$ERROR(5001,"General Error in DTLResult")
+			}
+		}
+		
+		quit:$$$ISERR(tSC) tSC
+	}
+	
+	// Error generating DTL Result message
+	// Use a comment in XData Block
+	if ($IsObject(sourceObj)) {
+		// Save the objects
+		set class=##class(%Dictionary.ClassDefinition).%OpenId(..%ClassName(1),0)
+		Quit:'$IsObject(class) $$$ERROR(5001,"Failed to instantiate DTL Test class for adding XData sections")
+		set tSC=class.XDatas.Insert(sourceXData)
+		Quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Failed to add Source XData Section to DTL class"),tSC)
+		if $IsObject(targetObj) {
+			set tSC=class.XDatas.Insert(targetXData)
+			Quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Failed to add Target XData Section to DTL class"),tSC)
+		}
+		set tSC=class.%Save(1)
+		Quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Failed to save DTL Test class after adding XData Sections"),tSC)
+	}
+
+	quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="SerialiseToXData">
+<Description>
+Method reused for serialising</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>obj:%Library.Persistent,stream:%Stream.GlobalCharacter,generatedDescription:%String=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set tSC=$$$OK
+	set classname=obj.%ClassName(1)
+	set id=obj.%Id()
+	set stream.LineTerminator=$C(13,10)
+
+	if ((classname="EnsLib.HL7.Message")||(classname="EnsLib.HL7.Segment"))
+	{
+	    // OutputToIOStream(pIOStream As %IO.I.CharacterStream, pSeparators As %String, pSequenceNumber As %String = "", pSegNum As %String, pSegPath As %String, pParentDoc As EnsLib.EDI.Document, pIOFormatClassname As %String = "") as %Status	
+		try {
+			Do stream.WriteLine("<test><![CDATA[")
+			Do:generatedDescription'="" stream.WriteLine("<!-- "_..XMLO(generatedDescription)_" !>")
+			Do obj.PokeDocType(obj.DocTypeName_":"_obj.DocTypeCategory)
+			// NB: The seperator characters 6 through to 8 are used by the HL7 implementation
+			// to set the segment terminator
+			// By setting this to the same end of line terminator as normal XData format
+			// the formatting of the XData source code is correct for later deserialisation
+			set tSC=obj.OutputToLibraryStream(stream,$E(obj.Separators,1,5)_$C(13,10))
+			Do stream.Write("]]]]><![CDATA[></test>")
+			
+		} catch {
+			set tSC=$$$ERROR(5001,"Error serialising instance of "_classname_" with id "_id_" to HL7 format")
+		}
+		quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Unable to serialise source class as "_classname),tSC)
+	} else {
+		
+		// Assumes this is an XML capable class
+		// XMLExportToStream(ByRef export As %Stream.Object, top As %String, format As %String, namespaces As %XML.Namespaces, attrs, createId As %String, typeAttr As %String, ByRef oreflist, ByRef idlist, initialIndent As %String) as %Status 
+		try {
+			Do:generatedDescription'="" stream.WriteLine("<!-- "_..XMLO(generatedDescription)_" !>")
+			set tSC=obj.XMLExportToStream(.tStream)
+			do tStream.Rewind()
+			set (last,char)=""
+			for {
+				set last=char
+				set char=tStream.Read(1)
+				
+				if last=">",char="<" {
+					do stream.Write($C(13,10))	
+				}
+				do stream.Write(char)
+				quit:tStream.AtEnd
+			}
+		} catch {
+			set tSC=$$$ERROR(5001,"Error serialising instance of "_classname_" with id "_id_" to XML format")
+		}
+		quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Unable to serialise source class as "_classname),tSC)
+	}
+	quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="NextTestXData">
+<Description><![CDATA[
+Create new source AND optional target XData block for an existing Unit Test
+<!--
+Do ##class(NHSW.Mills.Test.dtl.TestResultToHL7ORU).NextTestXData(1,.source,.target)
+!>]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>hasTarget:%Boolean=1,*source:%Dictionary.XDataDefinition,*target:%Dictionary.XDataDefinition=$$$NULLOREF</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	// Expecting format
+	// Prefix + NNN + Suffix
+	set pattern="1"""_..#TestXDataPrefix_"""1.N1"""_..#TestXDataSuffixSource_""""
+	set parent=..%ClassName(1)
+	set nMax=0
+	&SQL(DECLARE NextXdataName CURSOR FOR
+		select Name
+		INTO :xdataName
+		FROM %Dictionary.XDataDefinition
+		WHERE parent=:parent
+			AND Name %PATTERN :pattern
+	)
+	&SQL(OPEN NextXdataName)
+	for {
+	  &SQL(Fetch NextXdataName)
+	  Q:SQLCODE
+  	  continue:SQLCODE=""
+	  // Extract numeric part and discard any trailing text
+	  set xdataN=+$E(xdataName,5,*)
+	  set:nMax<xdataN nMax=xdataN
+	}
+	&SQL(CLOSE NextXdataName)
+	
+	set source=##class(%Dictionary.XDataDefinition).%New()
+	set source.Name=..#TestXDataPrefix_$TR($J(nMax+1,3)," ","0")_..#TestXDataSuffixSource
+	
+	if hasTarget {
+		set target=##class(%Dictionary.XDataDefinition).%New()
+		set target.Name=..#TestXDataPrefix_$TR($J(nMax+1,3)," ","0")_..#TestXDataSuffixTarget
+	}
+	
+	Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="XMLO">
+<ClassMethod>1</ClassMethod>
+<CodeMode>expression</CodeMode>
+<FormalSpec>val</FormalSpec>
+<Implementation><![CDATA[$ZCVT(val,"O","XML")
+]]></Implementation>
+</Method>
+</Class>
+</Export>
