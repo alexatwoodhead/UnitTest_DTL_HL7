@@ -5,9 +5,9 @@ The mission of DTL UnitTest:
 - Write Tests faster
 - Confirm existing behavior is not broken by subsequent enhancements to Schema and or Transform
 - Allow future enhancements to proceed confidently without having to manually retest for breaking dependency changes.
-- Encapsualte referencable testable requirements for Transform behavior. 
-- Stop losing sleep over deploying change and avoid unforseen impacts.
-- Retest fast and optionaly with continious integration
+- Encapsulate referenceable testable requirements for Transform behavior. 
+- Stop losing sleep over deploying change and avoid unforeseen impacts.
+- Retest fast and optionally with continuous integration
 - Provide tangible quality assurance via Test Output reports.
 
 Each UnitTest is generated from discovered Transforms in the namespace.
