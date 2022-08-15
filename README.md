@@ -1,6 +1,27 @@
 # UnitTest_DTL_HL7
 HL7 DTL TestCase Creator and Runner Framework
 
+The mission of DTL UnitTest:
+- Write Tests faster
+- Confirm existing behavior is not broken by subsequent enhancements to Schema and or Transform
+- Allow future enhancements to proceed confidently without having to manually retest for breaking dependency changes.
+- Encapsualte referencable testable requirements for Transform behavior. 
+- Stop losing sleep over deploying change and avoid unforseen impacts.
+- Retest fast and optionaly with continious integration
+- Provide tangible quality assurance via Test Output reports.
+
+Each UnitTest is generated from discovered Transforms in the namespace.
+A UnitTest consists of:
+- one or more pairs of:
+  - Source Message
+  - Target Message (Expected)
+- A generated comparison method
+
+At run time, for each pair of Source and Target message.
+- Load Source message
+- Transforms generate Actual output
+- Compare Actual output is compatible with Target (Expected)
+
 ## How to use
 The following will describe how to quickly get started with testing existing HL7 to HL7 Transforms.<br/>
 Note the framework can also process:
