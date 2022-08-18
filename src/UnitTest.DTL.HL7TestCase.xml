@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for Windows (x86-64) 2022.1 (Build 191U)" ts="2022-08-14 22:19:13">
+<Export generator="IRIS" version="26" zv="IRIS for Windows (x86-64) 2022.1 (Build 191U)" ts="2022-08-18 19:30:07">
 <Class name="UnitTest.DTL.HL7TestCase">
 <Description><![CDATA[
 <pre>
@@ -12,7 +12,7 @@ Source: https://github.com/alexatwoodhead/UnitTest_DTL_HL7
 Version: 1.0
 </pre>]]]]><![CDATA[>]]></Description>
 <Super>%UnitTest.TestCase</Super>
-<TimeChanged>66335,79740.8228664</TimeChanged>
+<TimeChanged>66339,70112.8510699</TimeChanged>
 <TimeCreated>66307,49447.182398</TimeCreated>
 
 <Parameter name="TestSuite">
@@ -685,19 +685,19 @@ listOnly - If enabled only list the classes that would be generated
 pStatus - List of errors encountered. 
 <!--
 List Only Test, match ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,1.pStatus)
 List Only match not ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,1,.pStatus)
 List Only, No copy sub packages, match ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,1,.pStatus)
 List Only, No copy sub packages, match not ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,1,.pStatus)
 Actually generate TestCases
 match ending in dot, follow sub package name convention
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,1,.pStatus)
 -->]]></Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>matchPackage="",targetPackage="",copySubPackageNames=1,addToProject="",listOnly=0,verbose=0,*pStatus:%Status=$$$OK</FormalSpec>
+<FormalSpec>matchPackage="",targetPackage="",copySubPackageNames=1,addToProject="",listOnly=0,verbose=0,autocompile=1,*pStatus:%Status=$$$OK</FormalSpec>
 <Implementation><![CDATA[
 	// strip trailing "." on target Package
 	if $Extract(targetPackage,*)="." {
@@ -763,6 +763,7 @@ Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","ME
 		}
 		else {
 			Do ..CreateTestCase(targetClass,transname)
+			Do:autocompile $SYSTEM.OBJ.Compile(targetClass,"ckf")
 		}
 	}
 	
@@ -1321,10 +1322,11 @@ Parameters:<br/>
 <li>generateDTLResult</li>
 <li>sourceXdataName</li>
 <li>targetXdataName</li>
+<li>recompile</li>
 </ol>
 set tSC=##class(Test.dtl.TestResultToHL7ORU).AddTestFromMessageBody("MessageClassName",2790,1,.sourceXdataName,.targetXdataName)]]></Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>sourceClassname:%String="",sourceId:%Integer=0,generateDTLResult:%Boolean=0,*sourceXdataName,*targetXdataName=""</FormalSpec>
+<FormalSpec>sourceClassname:%String="",sourceId:%Integer=0,generateDTLResult:%Boolean=0,*sourceXdataName,*targetXdataName="",recompile=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	#dim sourceObj as %Persistent
@@ -1335,8 +1337,8 @@ set tSC=##class(Test.dtl.TestResultToHL7ORU).AddTestFromMessageBody("MessageClas
 	
 	set tSC=$$$OK
 	
-	Quit:..%ClassName()="DTLTestCaseBase"
-	if (..%ClassName()="DTLTestCaseBase")
+	Quit:..%ClassName()="HL7TestCase"
+	if (..%ClassName()="HL7TestCase")
 	{
 		set tSC=$$$ERROR(5001, "Not allowed to define Test messages on """_..%ClassName(1))
 		quit tSC	
@@ -1415,6 +1417,7 @@ set tSC=##class(Test.dtl.TestResultToHL7ORU).AddTestFromMessageBody("MessageClas
 		}
 		set tSC=class.%Save(1)
 		Quit:$$$ISERR(tSC) $SYSTEM.Status.AppendStatus($$$ERROR(5001,"Failed to save DTL Test class after adding XData Sections"),tSC)
+		do:recompile $SYSTEM.OBJ.Compile(..%ClassName(1),"ckf")
 	}
 
 	quit tSC
