@@ -38,7 +38,7 @@ For each DTL found, a new TestCase is created when one doesn't already exists. (
 
 Example:
 ```objectscript
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("UnitTest.DTL.TestTrans.","UnitTest.Test.DTL.TestTrans.",0,,0,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("UnitTest.DTL.TestTrans.","UnitTest.Test.DTL.TestTrans.",0,,0,1,1,.pStatus)
 ```
 Parameters:
 * matchPackage - The facility will search for any transform classes that match this package path<br/>
@@ -46,21 +46,22 @@ Parameters:
 * copySubPackageNames - If enabled generate TestCase classes in sub packages as discovered from matched transforms<br/>
 * addToProject - If specified. Attempt to automatically add classes to the named Studio Package. (Running in Studio Output window).
 * listOnly - If enabled only list the classes that would be generated
+* autocompile - Default "1". Will compile newly generated classes.
 * pStatus - List of errors encountered. 
 
 Example variations:
 ```objectscript
 // List Only Test, match ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,1,1,1,.pStatus)
 // List Only match not ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",1,,1,1,1,.pStatus)
 // List Only, No copy sub packages, match ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",0,,1,1,1,.pStatus)
 // List Only, No copy sub packages, match not ending in dot
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl","MEXX.Radiology.test.dtl",0,,1,1,1,.pStatus)
 // Actually generate TestCases
 // match ending in dot, follow sub package name convention
-Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,.pStatus)
+Do ##class(UnitTest.DTL.HL7TestCase).GenerateTestCases("MEXX.Radiology.dtl.","MEXX.Radiology.test.dtl",1,,0,1,1,.pStatus)
 ```
 
 ### Step 3 - Optional Adjust Compare expressions
@@ -152,7 +153,7 @@ The additional tests are automatically added to the unit test run.
 
 For programatically adding new Source messages and optionally generated outputs see method <em>AddTestFromMessageBody</em>
 ```objectscript
-set tSC=##class(UnitTest.Test.DTL.TestTrans.TransformSource2).AddTestFromMessageBody("EnsLib.HL7.Message",2790,1,.sourceXdataName,.targetXdataName)
+set tSC=##class(UnitTest.Test.DTL.TestTrans.TransformSource2).AddTestFromMessageBody("EnsLib.HL7.Message",2790,1,.sourceXdataName,.targetXdataName,1)
 ```
 Populate Test XData blocks with message content<br/>
 Parameters:<br/>
@@ -161,6 +162,7 @@ Parameters:<br/>
  - generateDTLResult - "1" = Yes, "0"= No
  - sourceXdataName - Optional ByRef for output review
  - targetXdataName - Optional ByRef for output review
+ - recompile - Optional. Default is "0"
 
 
 ### Step 4 - Core UnitTest runner dependency
